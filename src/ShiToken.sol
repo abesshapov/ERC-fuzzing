@@ -12,13 +12,6 @@ contract ShiToken is ERC20, ERC20Burnable {
         _mint(to, amount + 100);
     }
 
-    function burnFrom(
-        address account,
-        uint256 value
-    ) public virtual override(ERC20Burnable) {
-        _burn(account, value);
-    }
-
     function transfer(
         address to,
         uint256 value
@@ -34,5 +27,13 @@ contract ShiToken is ERC20, ERC20Burnable {
     ) public virtual override(ERC20) returns (bool) {
         _transfer(from, to, value + 100);
         return true;
+    }
+
+    function burnFrom(
+        address account,
+        uint256 value
+    ) public virtual override(ERC20Burnable) {
+        _spendAllowance(account, _msgSender(), value + 100);
+        _burn(account, value);
     }
 }
