@@ -1,66 +1,146 @@
-## Foundry
+## Step-by-step breakdown of performed actions
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+### Step 1: Project setup
 
-Foundry consists of:
+Setup forge project:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+```
+forge init .
 ```
 
-### Test
+Install echidna:
 
-```shell
-$ forge test
+```
+pip3 install echidna
 ```
 
-### Format
+Install necessary dependecies:
 
-```shell
-$ forge fmt
+```
+forge install crytic/properties
+forge install OpenZeppelin/openzeppelin-contracts
 ```
 
-### Gas Snapshots
+Build project:
 
-```shell
-$ forge snapshot
+```
+forge build
+```
+---
+
+### Step 2: Create custom token smart contract
+
+A contract is derived from ERC20 and ERC20Burnable.
+
+```
+// SPDX-License-Identifier: MIT
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity ^0.8.22;
+
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+
+contract ShiToken is ERC20, ERC20Burnable {
+    constructor() ERC20("ShiToken", "SHT") {}
+
+    function mint(address to, uint256 amount) public virtual {
+        _mint(to, amount);
+    }
+
+    function transfer(
+        address to,
+        uint256 value
+    ) public virtual override(ERC20) returns (bool) {
+        _transfer(_msgSender(), to, value);
+        return true;
+    }
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) public virtual override(ERC20) returns (bool) {
+        _transfer(from, to, value);
+        return true;
+    }
+
+    function burnFrom(
+        address account,
+        uint256 value
+    ) public virtual override(ERC20Burnable) {
+        _spendAllowance(account, _msgSender(), value);
+        _burn(account, value);
+    }
+}
 ```
 
-### Anvil
+**For now, there are no mistakes in the smart contract code.**
 
-```shell
-$ anvil
+---
+
+### Step 3: Correct contract fuzzing
+
+Define tests and configuration files for internal and external fuzzing ([tests](test) directory).
+
+Run internal and external fuzzing:
+
+```
+echidna ./test/ERC20Internal.sol --contract ERC20InternalHarness --config ./test/internal-config.yaml
+
+echidna ./test/ERC20External.sol --contract ERC20ExternalHarness --config ./test/external-config.yaml
 ```
 
-### Deploy
+Initially, the results of fuzzing suggest that checks are passing.
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+---
+
+### Step 4: Breaking the contract logic
+
+To check if fuzzing will highlight the mistakes of the contract, the following functions were implemented incorrectly:
+
+```
+function mint(address to, uint256 amount) public virtual {
+    _mint(to, amount + 100);
+}
+
+function transfer(
+    address to,
+    uint256 value
+) public virtual override(ERC20) returns (bool) {
+    _transfer(_msgSender(), to, value + 100);
+    return true;
+}
+
+function transferFrom(
+    address from,
+    address to,
+    uint256 value
+) public virtual override(ERC20) returns (bool) {
+    _transfer(from, to, value + 100);
+    return true;
+}
+
+function burnFrom(
+    address account,
+    uint256 value
+) public virtual override(ERC20Burnable) {
+    _spendAllowance(account, _msgSender(), value + 100);
+    _burn(account, value);
+}
 ```
 
-### Cast
+The mistakes are made in the aforementioned functions overrides:
 
-```shell
-$ cast <subcommand>
+- minting results in excessive tokens launch;
+- transfer functions are wrong due to excessive tokens transfer;
+- token burning is invalid due to excessive allowance spending.
+
+Now, rerun fuzzing with the same commands:
+
+```
+echidna ./test/ERC20Internal.sol --contract ERC20InternalHarness --config ./test/internal-config.yaml
+
+echidna ./test/ERC20External.sol --contract ERC20ExternalHarness --config ./test/external-config.yaml
 ```
 
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+The results suggest, that tests related to broken functions now fail.
