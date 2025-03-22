@@ -1,0 +1,3 @@
+[submodule "ERC-fuzzing/lib/forge-std"]
+	path = ERC-fuzzing/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
