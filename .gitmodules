@@ -1,9 +1,0 @@
-[submodule "ERC-fuzzing/lib/forge-std"]
-	path = ERC-fuzzing/lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
-[submodule "ERC-fuzzing/lib/properties"]
-	path = ERC-fuzzing/lib/properties
-	url = https://github.com/crytic/properties
-[submodule "ERC-fuzzing/lib/openzeppelin-contracts"]
-	path = ERC-fuzzing/lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
